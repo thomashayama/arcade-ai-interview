@@ -10,10 +10,9 @@ You've been provided with a `flow.json` file that contains data from an Arcade f
 
 Your application should accomplish the following:
 
-1. **Extract Key Actions**: Identify and extract the step-by-step actions the user performed
-2. **Identify UI Elements**: Determine what specific UI elements were clicked, typed, or interacted with
-3. **Generate Human-Friendly Summary**: Create a clear, readable summary of what the user was trying to accomplish
-4. **Create a Social Media Image**: Generate an image suitable for sharing on social platforms that represents the flow
+1. **Identify User Interactions**: List out the actions the user did in a human readable format (i.e. "Clicked on checkout", "Search for X")
+2. **Generate Human-Friendly Summary**: Create a clear, readable summary of what the user was trying to accomplish
+3. **Create a Social Media Image**: Generate an creative image suitable for sharing on social platforms that represents the flow and would drive engagement
 
 These items should be then displayed in a **markdown file** that can be committed in your project
 
