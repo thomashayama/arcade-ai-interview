@@ -49,6 +49,7 @@ You can view the original flow to understand what the user was doing, your solut
 - Each step has metadata about what the user clicked and when
 - Think about how to structure your analysis for maximum clarity
 - The social media image should be professional and represent the flow's purpose
+- Feel free to use different models types to both understand the flow and generate the image
 
 ## 💰 Cost Management
 
