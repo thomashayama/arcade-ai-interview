@@ -8,6 +8,8 @@ This solution analyzes Arcade flow recordings using OpenAI's multimodal APIs wit
 - Multithreaded multi-image generation with AI-powered selection of strongest image candidate
 - LLM API call caching system for cost efficiency during development
 
+**View an example report:** [REPORT.md](REPORT.md)
+
 ## Quick Start
 ```bash
 # Install dependencies

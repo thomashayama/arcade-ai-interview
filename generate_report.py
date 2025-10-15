@@ -100,7 +100,7 @@ User interactions: {user_actions}
 Write a friendly, informative summary that explains the user's goal and the steps they took."""
             }
         ],
-        temperature=0.5,
+        temperature=0.3,  # Lower for consistent, factual summaries
         max_tokens=800
     )
 
@@ -153,7 +153,7 @@ Respond in JSON format:
 }}"""
             }
         ],
-        temperature=0.8,
+        temperature=0.7,  # Creative but grounded for better quality
         max_tokens=2000
     )
 
