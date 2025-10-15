@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any, Optional, Dict
 from datetime import datetime
 import pickle
-
+import requests
+import re
 
 class OpenAICache:
     """
@@ -225,21 +226,151 @@ def cached_openai_request(
     cache.set(cache_params, response_dict, cache_type=cache_type)
 
     return response_dict
+    
+def extract_json_from_response(content: str) -> dict:
+    """
+    Extract JSON from LLM response that may be wrapped in markdown code blocks.
+
+    Args:
+        content: Raw response content from LLM
+
+    Returns:
+        Parsed JSON dict
+
+    Raises:
+        json.JSONDecodeError: If no valid JSON found
+    """
+    # Try direct parsing first
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        pass
+
+    # Try to extract JSON from markdown code blocks
+    # Pattern: ```json\n{...}\n``` or ```\n{...}\n```
+    code_block_pattern = r'```(?:json)?\s*\n(.*?)\n```'
+    matches = re.findall(code_block_pattern, content, re.DOTALL)
+
+    if matches:
+        for match in matches:
+            try:
+                return json.loads(match.strip())
+            except json.JSONDecodeError:
+                continue
+
+    # Try to find JSON object in the text
+    json_pattern = r'\{.*\}'
+    matches = re.findall(json_pattern, content, re.DOTALL)
+
+    if matches:
+        # Try the longest match first (most likely to be complete)
+        for match in sorted(matches, key=len, reverse=True):
+            try:
+                return json.loads(match)
+            except json.JSONDecodeError:
+                continue
+
+    # If all else fails, raise error with helpful message
+    raise json.JSONDecodeError(
+        f"Could not extract valid JSON from response. Content preview: {content[:200]}...",
+        content,
+        0
+    )
 
 
-# Example usage:
-if __name__ == "__main__":
-    # Initialize cache
-    cache = OpenAICache()
+def download_image(url: str, output_path: str) -> bool:
+    """Download an image from URL and save it locally."""
+    try:
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        with open(output_path, 'wb') as f:
+            f.write(response.content)
+        return True
+    except Exception as e:
+        print(f"Failed to download image: {e}")
+        return False
 
-    # Show cache stats
-    stats = cache.get_stats()
-    print(f"\nCache Statistics:")
-    print(f"  Text responses: {stats['text_cache_count']}")
-    print(f"  Image responses: {stats['image_cache_count']}")
-    print(f"  Total size: {stats['total_size_mb']} MB")
 
-    # Example of clearing cache (uncomment to use)
-    # cache.clear()  # Clear all
-    # cache.clear("text")  # Clear only text responses
-    # cache.clear("images")  # Clear only image responses
+def generate_markdown_report(
+    flow_data: dict,
+    user_actions: str,
+    summary: str,
+    best_image_url: str,
+    best_image_path: str,
+    all_images: list = None,
+    selection_reasoning: str = None
+) -> str:
+    """Generate a markdown report from the analysis results."""
+
+    flow_name = flow_data.get('name', 'Untitled Flow')
+    flow_description = flow_data.get('description', '')
+
+    markdown = f"""# Arcade Flow Analysis Report
+
+## Flow Information
+
+**Name:** {flow_name}
+
+**Description:** {flow_description if flow_description else 'No description provided'}
+
+**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+---
+
+## 1. User Interactions
+
+{user_actions}
+
+---
+
+## 2. Summary
+
+{summary}
+
+---
+
+## 3. Social Media Image
+
+![{flow_name}]({best_image_path})
+
+**Image URL:** {best_image_url}
+
+---
+
+## Technical Details
+
+- **Total Steps:** {len(flow_data.get('steps', []))}
+- **Flow ID:** {flow_data.get('uploadId', 'N/A')}
+- **Created With:** {flow_data.get('createdWith', 'N/A')}
+- **Use Case:** {flow_data.get('useCase', 'N/A')}
+
+---
+"""
+
+    # Add addendum with all images if provided
+    if all_images and len(all_images) > 1:
+        markdown += f"""
+
+---
+
+## Addendum: Image Selection Process
+
+{selection_reasoning if selection_reasoning else 'Multiple images were generated and evaluated.'}
+
+### All Generated Images
+
+"""
+        for i, img_info in enumerate(all_images, 1):
+            is_selected = "✓ **SELECTED**" if img_info.get('selected', False) else ""
+            markdown += f"""
+#### Image {i} {is_selected}
+
+![Image {i}]({img_info['path']})
+
+**Prompt Variation:** {img_info.get('prompt_variation', 'Standard')}
+
+**URL:** {img_info['url']}
+
+"""
+
+    return markdown
