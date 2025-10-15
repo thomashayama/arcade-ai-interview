@@ -1,0 +1,4 @@
+# Runtime dependencies for arcade-ai-interview
+
+# OpenAI API
+openai>=1.12.0
