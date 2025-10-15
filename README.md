@@ -5,7 +5,7 @@ This solution analyzes Arcade flow recordings using OpenAI's multimodal APIs wit
 - Vision AI analysis of VIDEO steps using surrounding image and thumbnail context
 - Clean list and summary of user actions
 - Image prompt generation
-- Multi-image generation with AI-powered selection of strongest image candidate
+- Multithreaded multi-image generation with AI-powered selection of strongest image candidate
 - LLM API call caching system for cost efficiency during development
 
 ## Quick Start
