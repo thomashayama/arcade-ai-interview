@@ -1,7 +1,21 @@
 secrets.yaml
 .cache/
 .env
+
+# Test artifacts
 .coverage
+htmlcov/
 __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/

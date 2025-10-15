@@ -10,3 +10,4 @@ coverage>=7.4.0
 
 # For OpenAI integration (runtime dependency)
 openai>=1.12.0
+pyyaml>=6.0

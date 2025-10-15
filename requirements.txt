@@ -2,3 +2,9 @@
 
 # OpenAI API
 openai>=1.12.0
+
+# YAML parsing
+pyyaml>=6.0.1
+
+# HTTP requests for image download
+requests>=2.31.0
