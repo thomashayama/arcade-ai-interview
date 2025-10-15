@@ -11,39 +11,45 @@ from datetime import datetime
 from openai import OpenAI
 from utils import OpenAICache, cached_openai_request, download_image, generate_markdown_report, extract_json_from_response
 from enhanced_video_analysis import create_user_interactions_with_videos
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-def get_surrounding_context(steps, video_index):
-    """
-    Get context from steps surrounding a VIDEO step.
+def generate_single_image(client, cache, index, prompt_info):
+        """Generate a single image and download it."""
+        i = index + 1  # 1-based index for display
+        variation = prompt_info['variation']
+        prompt = prompt_info['prompt']
 
-    Returns dict with previous_action and next_action info.
-    """
-    context = {'previous_action': None, 'next_action': None}
+        print(f"\n  Image {i} ({variation}): Starting generation...")
 
-    # Get previous IMAGE step
-    if video_index > 0:
-        prev_step = steps[video_index - 1]
-        if prev_step.get('type') == 'IMAGE':
-            click_ctx = prev_step.get('clickContext', {})
-            context['previous_action'] = {
-                'element': click_ctx.get('text', 'unknown'),
-                'element_type': click_ctx.get('elementType', 'unknown'),
-                'page_url': prev_step.get('pageContext', {}).get('url', '')
-            }
+        image_response = cached_openai_request(
+            client=client,
+            cache=cache,
+            request_type="image",
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1
+        )
 
-    # Get next IMAGE step
-    if video_index < len(steps) - 1:
-        next_step = steps[video_index + 1]
-        if next_step.get('type') == 'IMAGE':
-            click_ctx = next_step.get('clickContext', {})
-            context['next_action'] = {
-                'element': click_ctx.get('text', 'unknown'),
-                'element_type': click_ctx.get('elementType', 'unknown'),
-                'page_url': next_step.get('pageContext', {}).get('url', '')
-            }
+        image_url = image_response['data'][0]['url']
+        image_filename = f"social_media_image_{i}.png"
 
-    return context
+        # Download the image
+        if download_image(image_url, image_filename):
+            print(f"  ✓ Image {i} ({variation}): Downloaded {image_filename}")
+        else:
+            print(f"  ⚠ Image {i} ({variation}): Failed to download {image_filename}")
 
+        return {
+            'number': i,
+            'url': image_url,
+            'path': image_filename,
+            'prompt': prompt,
+            'prompt_variation': variation,
+            'selected': False,
+            'index': index  # For sorting
+        }
 
 def main():
     # Initialize OpenAI client
@@ -158,44 +164,31 @@ Respond in JSON format:
     prompts_data = extract_json_from_response(response_content)
     image_prompts = prompts_data['prompts']
 
-    # Generate 3 images
+    # Generate 3 images in parallel
+    print(f"\n→ Generating 3 images in parallel with different styles...")
+
+    # Execute image generation in parallel
     all_images = []
-    print(f"\n→ Generating 3 images with different styles...")
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        # Submit all image generation tasks
+        future_to_index = {
+            executor.submit(generate_single_image, client, cache, i, prompt_info): i
+            for i, prompt_info in enumerate(image_prompts)
+        }
 
-    for i, prompt_info in enumerate(image_prompts, 1):
-        variation = prompt_info['variation']
-        prompt = prompt_info['prompt']
+        # Collect results as they complete
+        for future in as_completed(future_to_index):
+            try:
+                image_info = future.result()
+                all_images.append(image_info)
+            except Exception as e:
+                index = future_to_index[future]
+                print(f"  ✗ Image {index + 1} generation failed: {e}")
 
-        print(f"\n  Image {i} ({variation}): {prompt}")
+    # Sort by original index to maintain order
+    all_images.sort(key=lambda x: x['index'])
 
-        image_response = cached_openai_request(
-            client=client,
-            cache=cache,
-            request_type="image",
-            model="dall-e-3",
-            prompt=prompt,
-            size="1024x1024",
-            quality="standard",
-            n=1
-        )
-
-        image_url = image_response['data'][0]['url']
-        image_filename = f"social_media_image_{i}.png"
-
-        # Download the image
-        if download_image(image_url, image_filename):
-            print(f"  ✓ Downloaded {image_filename}")
-        else:
-            print(f"  ⚠ Failed to download {image_filename}")
-
-        all_images.append({
-            'number': i,
-            'url': image_url,
-            'path': image_filename,
-            'prompt': prompt,
-            'prompt_variation': variation,
-            'selected': False
-        })
+    print(f"\n✓ All {len(all_images)} images generated successfully!")
 
     # Step 4: Use VLM to select the best image
     print("\n=== Step 4: Using Vision Model to Select Best Image ===")
