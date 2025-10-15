@@ -135,9 +135,9 @@ def analyze_video_with_context(client, cache, step: Dict, context: Dict, capture
 {events_text}
 
 Based on the screenshot, context, and events, write a single clear sentence describing the user's action.
-Example: "Typed 'scooter' into the search bar"
+Example: "Typed 'bowling ball' into the search bar"
 Example: "Scrolled through the search results"
-Example: "Selected the blue color option"
+Example: "Selected the number 9 option"
 
 Respond with just the action description, no preamble."""
                     },
@@ -256,7 +256,7 @@ def create_user_interactions_with_videos(client, cache, flow_data: Dict) -> str:
         client=client,
         cache=cache,
         request_type="chat",
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[
             {
                 "role": "system",

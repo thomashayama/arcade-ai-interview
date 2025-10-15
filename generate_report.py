@@ -45,119 +45,6 @@ def get_surrounding_context(steps, video_index):
     return context
 
 
-def analyze_video_with_context(client, cache, step, context, captured_events):
-    """
-    Analyze a VIDEO step using vision AI with surrounding context.
-
-    Returns a human-readable description of what happened in the video.
-    """
-    import base64
-
-    thumbnail_url = step.get('videoThumbnailUrl')
-
-    # Build comprehensive context from surrounding steps
-    context_text = "Context:\n"
-    if context['previous_action']:
-        prev = context['previous_action']
-        context_text += f"- Previous action: User clicked on '{prev['element']}' ({prev['element_type']})\n"
-        if prev['page_url']:
-            context_text += f"- Previous page: {prev['page_url']}\n"
-
-    if context['next_action']:
-        nxt = context['next_action']
-        context_text += f"- Next action: User will click on '{nxt['element']}' ({nxt['element_type']})\n"
-        if nxt['page_url']:
-            context_text += f"- Next page: {nxt['page_url']}\n"
-
-    # Summarize all captured events in the flow for general context
-    events_summary = []
-    for event in captured_events:
-        event_type = event.get('type', 'unknown')
-        if event_type not in [e['type'] for e in events_summary]:
-            events_summary.append({'type': event_type})
-
-    events_text = "Overall events in this flow include: "
-    event_types = [e['type'] for e in events_summary]
-    if 'typing' in event_types:
-        events_text += "typing, "
-    if 'scrolling' in event_types:
-        events_text += "scrolling, "
-    if 'click' in event_types:
-        events_text += "clicking, "
-    if 'dragging' in event_types:
-        events_text += "dragging, "
-    events_text = events_text.rstrip(', ')
-
-    # Download thumbnail and convert to base64
-    try:
-        response = requests.get(thumbnail_url, timeout=10)
-        response.raise_for_status()
-        image_data = base64.b64encode(response.content).decode('utf-8')
-
-        # Determine image type from URL or content
-        if thumbnail_url.endswith('.png') or 'png' in thumbnail_url:
-            image_type = 'png'
-        elif thumbnail_url.endswith('.jpg') or thumbnail_url.endswith('.jpeg') or 'jpeg' in thumbnail_url:
-            image_type = 'jpeg'
-        else:
-            image_type = 'png'  # Default
-
-        image_url_data = f"data:image/{image_type};base64,{image_data}"
-
-    except Exception as e:
-        print(f"  Warning: Failed to download thumbnail, skipping vision analysis: {e}")
-        # Fallback: describe based on context and events only
-        if captured_events:
-            event_types = [e.get('type') for e in captured_events]
-            if 'typing' in event_types:
-                return "Typed into a field"
-            elif 'scrolling' in event_types:
-                return "Scrolled the page"
-            elif 'click' in event_types:
-                return "Performed a click action"
-        return "Performed an action"
-
-    # Use vision model with context
-    description_response = cached_openai_request(
-        client=client,
-        cache=cache,
-        request_type="chat",
-        model="gpt-4o",  # Vision-capable model
-        messages=[
-            {
-                "role": "system",
-                "content": "You are an expert at describing user actions in web interfaces. Be specific and concise."
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"""Describe what the user is doing in this video segment.
-
-{context_text}
-
-{events_text}
-
-Write ONE clear sentence describing the user's action (e.g., "Typed 'scooter' into the search bar", "Scrolled through the product results").
-Respond with just the action description, no preamble."""
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": image_url_data,
-                            "detail": "low"  # Use low detail for faster processing
-                        }
-                    }
-                ]
-            }
-        ],
-        temperature=0.2,
-        max_tokens=100
-    )
-    return description_response['choices'][0]['message']['content'].strip()
-
-
 def main():
     # Initialize OpenAI client
     secrets = yaml.safe_load(open("secrets.yaml"))
@@ -191,7 +78,7 @@ def main():
         client=client,
         cache=cache,
         request_type="chat",
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[
             {
                 "role": "system",
@@ -226,11 +113,11 @@ Write a friendly, informative summary that explains the user's goal and the step
         client=client,
         cache=cache,
         request_type="chat",
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[
             {
                 "role": "system",
-                "content": "You are an expert at creating engaging DALL-E prompts for social media images."
+                "content": "You are an expert at creating engaging DALL-E prompts for social media images that are professional and represent the flow's purpose."
             },
             {
                 "role": "user",
@@ -245,23 +132,23 @@ Each prompt should have a different creative approach but all should be:
 - Representative of the flow's purpose
 - Suitable for platforms like LinkedIn, Twitter, etc.
 
-Variations to try:
-1. Minimalist/clean design approach
-2. Vibrant/colorful approach
-3. Illustrative/conceptual approach
+Potential variations to try (though not required):
+1. Minimal & Modern approach
+2. Bold & Dynamic approach
+3. Elegant & Editorial approach
 
 Respond in JSON format:
 {{
   "prompts": [
-    {{"variation": "Minimalist", "prompt": "..."}},
-    {{"variation": "Vibrant", "prompt": "..."}},
-    {{"variation": "Illustrative", "prompt": "..."}}
+    {{"variation": "Minimal & Modern", "prompt": "..."}},
+    {{"variation": "Bold & Dynamic", "prompt": "..."}},
+    {{"variation": "Elegant & Editorial", "prompt": "..."}}
   ]
 }}"""
             }
         ],
         temperature=0.8,
-        max_tokens=800
+        max_tokens=2000
     )
 
     # Extract JSON from response (handles markdown code blocks)
@@ -279,7 +166,7 @@ Respond in JSON format:
         variation = prompt_info['variation']
         prompt = prompt_info['prompt']
 
-        print(f"\n  Image {i} ({variation}): {prompt[:80]}...")
+        print(f"\n  Image {i} ({variation}): {prompt}")
 
         image_response = cached_openai_request(
             client=client,
